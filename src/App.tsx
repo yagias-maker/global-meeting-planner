@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
-import { CITY_OPTIONS, CityOption } from "./cityData";
+//import { CITY_OPTIONS, CityOption } from "./cityData";
+import { CITY_OPTIONS, findCityOption, type CityOption } from "./cityData";
 import { compareTime, formatCandidateLine, isValidHHmm } from "./utils";
 
 type Candidate = { id: string; date: string; start: string; end: string };
@@ -18,9 +19,9 @@ function todayISO(): string {
 }
 
 export default function App() {
-  const [baseCityLabel, setBaseCityLabel] = useState("New York");
+  const [baseCityLabel, setBaseCityLabel] = useState("Tokyo");
   const baseCity = useMemo<CityOption | null>(() => {
-    const found = CITY_OPTIONS.find(c => c.label.toLowerCase() === baseCityLabel.trim().toLowerCase());
+    const found = findCityOption(baseCityLabel);
     return found ?? null;
   }, [baseCityLabel]);
 
@@ -84,8 +85,28 @@ export default function App() {
   }
 
   function updateCandidate(id: string, patch: Partial<Candidate>) {
-    setCandidates(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)));
-  }
+  setCandidates(prev =>
+    prev.map(c => {
+      if (c.id !== id) return c;
+
+      // Start が変更されたとき
+      if (patch.start && patch.start !== c.start) {
+        const [h, m] = patch.start.split(":").map(Number);
+        const endHour = (h + 1) % 24;
+        const end = `${String(endHour).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+
+        return {
+          ...c,
+          ...patch,
+          end
+        };
+      }
+
+      return { ...c, ...patch };
+    })
+  );
+}
+
 
   function removeCandidate(id: string) {
     setCandidates(prev => prev.filter(c => c.id !== id));

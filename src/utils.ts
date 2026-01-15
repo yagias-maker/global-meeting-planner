@@ -1,20 +1,29 @@
 import { DateTime } from "luxon";
 
 const TZ_ABBR_MAP: Record<string, { std: string; dst?: string }> = {
+  // Asia
   "Asia/Tokyo": { std: "JST" },
+  "Asia/Kolkata": { std: "IST" },
+  "Asia/Shanghai": { std: "CST" }, // China
+  "Asia/Macau": { std: "CST" },
+  "Asia/Singapore": { std: "SGT" },
 
+  // Europe
   "Europe/London": { std: "GMT", dst: "BST" },
-  "Europe/Paris": { std: "CET", dst: "CEST" },
   "Europe/Berlin": { std: "CET", dst: "CEST" },
+  "Europe/Rome": { std: "CET", dst: "CEST" },
+  "Europe/Madrid": { std: "CET", dst: "CEST" },
+  "Europe/Bucharest": { std: "EET", dst: "EEST" },
+  "Europe/Copenhagen": { std: "CET", dst: "CEST" },
 
+  // North America
   "America/New_York": { std: "EST", dst: "EDT" },
   "America/Chicago": { std: "CST", dst: "CDT" },
   "America/Los_Angeles": { std: "PST", dst: "PDT" },
 
-  "Asia/Singapore": { std: "SGT" },
-  "Asia/Seoul": { std: "KST" },
-  "Asia/Shanghai": { std: "CST" },
-  "Australia/Sydney": { std: "AEST", dst: "AEDT" }
+  // South America
+  "America/Sao_Paulo": { std: "BRT" },
+  "America/Santiago": { std: "CLT", dst: "CLST" }
 };
 
 function getTzAbbr(dt: DateTime): string {
@@ -56,44 +65,36 @@ export function compareTime(a: string, b: string): number {
 export function formatCandidateLine(params: {
   baseIana: string;
   baseLabel: string;
-  candidateDate: string; // yyyy-mm-dd
-  start: string; // HH:mm
-  end: string;   // HH:mm
+  candidateDate: string;
+  start: string;
+  end: string;
   participants: Array<{ label: string; iana: string }>;
   use24h: boolean;
 }): string {
-  const { baseIana, baseLabel, candidateDate, start, end, participants, use24h } = params;
+  const { baseIana, candidateDate, start, end, participants, use24h } = params;
 
   const startBase = DateTime.fromISO(`${candidateDate}T${start}`, { zone: baseIana });
   const endBase = DateTime.fromISO(`${candidateDate}T${end}`, { zone: baseIana });
 
-  // 先頭日付は開催都市基準
-  const headDate = startBase.toFormat("MMM d, yyyy (ccc)");
+  const fmtDate = startBase.toFormat("MMM d, yyyy (ccc)");
+  const fmtTime = (dt: DateTime) =>
+    use24h ? dt.toFormat("HH:mm") : dt.toFormat("h:mm a");
 
-  const fmtTime = (dt: DateTime) => (use24h ? dt.toFormat("HH:mm") : dt.toFormat("h:mm a"));
-  const tzShort = (dt: DateTime) => getTzAbbr(dt);
+  // 開催都市（基準）
+  const segments: string[] = [
+    `${fmtTime(startBase)} – ${fmtTime(endBase)} (${getTzAbbr(startBase)})`
+  ];
 
-  const baseSegment = (() => {
-    const s = fmtTime(startBase);
-    const e = fmtTime(endBase);
-    const tz = tzShort(startBase);
-    return `${s} to ${e} ${tz}`;
-  })();
-
-  const baseDay = startBase.startOf("day");
-
-  const otherSegments = participants.map(p => {
+  // 参加都市
+  participants.forEach(p => {
     const s = startBase.setZone(p.iana);
     const e = endBase.setZone(p.iana);
 
-    const shiftDays = Math.round(s.startOf("day").diff(baseDay, "days").days);
-    const suffix = shiftDays === 0 ? "" : ` (${shiftDays > 0 ? "+" : ""}${shiftDays}d)`;
-
-    return `${fmtTime(s)} to ${fmtTime(e)} ${tzShort(s)}${suffix}`;
+    segments.push(
+      `${fmtTime(s)} – ${fmtTime(e)} (${getTzAbbr(s)})`
+    );
   });
 
-  // 開催都市も「都市名」を出したい場合はここで付けられるが、例に合わせて時刻のみを並べる
-  // 例: `${baseLabel} ${baseSegment} / ...` も可能
-  return `${headDate}: ${baseSegment} / ${otherSegments.join(" / ")}`;
+  return `${fmtDate}: ${segments.join(" / ")}`;
 }
 
