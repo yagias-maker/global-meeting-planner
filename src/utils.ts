@@ -124,7 +124,7 @@ export function formatCandidateAsAlignedTable(params: {
   const pad = (s: string, w: number) => s + " ".repeat(Math.max(0, w - s.length));
 
   const lines: string[] = [];
-  lines.push(`${pad("都市", cityW)}${pad("現地日時", timeW)}${pad("UTC", offW)}`);
+  lines.push(`${pad("City", cityW)}${pad("Local date", timeW)}${pad("UTC offset", offW)}`);
   lines.push(`${"-".repeat(cityW)}${"-".repeat(timeW)}${"-".repeat(offW)}`);
 
   rows.forEach(r => {
