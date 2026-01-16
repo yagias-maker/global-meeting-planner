@@ -71,7 +71,7 @@ export function formatCandidateLine(params: {
   participants: Array<{ label: string; iana: string }>;
   use24h: boolean;
 }): string {
-  const { baseIana, candidateDate, start, end, participants, use24h } = params;
+  const { baseIana, baseLabel, candidateDate, start, end, participants, use24h } = params;
 
   const startBase = DateTime.fromISO(`${candidateDate}T${start}`, { zone: baseIana });
   const endBase = DateTime.fromISO(`${candidateDate}T${end}`, { zone: baseIana });
@@ -82,7 +82,7 @@ export function formatCandidateLine(params: {
 
   // 開催都市（基準）
   const segments: string[] = [
-    `${fmtTime(startBase)} – ${fmtTime(endBase)} (${getTzAbbr(startBase)})`
+    `${fmtTime(startBase)} – ${fmtTime(endBase)} (${getTzAbbr(startBase)}: ${baseLabel})`
   ];
 
   // 参加都市
@@ -91,10 +91,48 @@ export function formatCandidateLine(params: {
     const e = endBase.setZone(p.iana);
 
     segments.push(
-      `${fmtTime(s)} – ${fmtTime(e)} (${getTzAbbr(s)})`
+    `${fmtTime(s)} – ${fmtTime(e)} (${getTzAbbr(s)}: ${p.label})`
     );
   });
 
   return `${fmtDate}: ${segments.join(" / ")}`;
 }
+
+export function formatCandidateAsAlignedTable(params: {
+  baseIana: string;
+  candidateDate: string;
+  start: string;
+  participants: Array<{ label: string; iana: string }>;
+}): string {
+  const { baseIana, candidateDate, start, participants } = params;
+
+  const base = DateTime.fromISO(`${candidateDate}T${start}`, { zone: baseIana });
+
+  const rows = participants.map(p => {
+    const dt = base.setZone(p.iana);
+    const localDateTime = dt.toFormat("yyyy-MM-dd HH:mm");
+    const offsetHours = dt.offset / 60;
+    const offset = `UTC${offsetHours >= 0 ? "+" : ""}${offsetHours}`;
+    return { city: p.label, localDateTime, offset };
+  });
+
+  // 列幅を計算
+  const cityW = Math.max("都市".length, ...rows.map(r => r.city.length)) + 2;
+  const timeW = Math.max("現地日時".length, ...rows.map(r => r.localDateTime.length)) + 2;
+  const offW = Math.max("UTC".length, ...rows.map(r => r.offset.length)) + 2;
+
+  const pad = (s: string, w: number) => s + " ".repeat(Math.max(0, w - s.length));
+
+  const lines: string[] = [];
+  lines.push(`${pad("都市", cityW)}${pad("現地日時", timeW)}${pad("UTC", offW)}`);
+  lines.push(`${"-".repeat(cityW)}${"-".repeat(timeW)}${"-".repeat(offW)}`);
+
+  rows.forEach(r => {
+    lines.push(`${pad(r.city, cityW)}${pad(r.localDateTime, timeW)}${pad(r.offset, offW)}`);
+  });
+
+  return lines.join("\n");
+}
+
+
 

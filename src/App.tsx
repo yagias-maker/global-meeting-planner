@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from "react";
-//import { CITY_OPTIONS, CityOption } from "./cityData";
+import { useMemo, useState } from "react";
 import { CITY_OPTIONS, findCityOption, type CityOption } from "./cityData";
-import { compareTime, formatCandidateLine, isValidHHmm } from "./utils";
+import { compareTime, formatCandidateLine, formatCandidateAsAlignedTable, isValidHHmm } from "./utils";
 
 type Candidate = { id: string; date: string; start: string; end: string };
 type Participant = { id: string; label: string; iana: string; source: "city" | "iana" };
+
+// 出力形式を追加（オフセットわかる表）
+type OutputMode = "meeting" | "table";
 
 function uid() {
   return Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -19,6 +21,7 @@ function todayISO(): string {
 }
 
 export default function App() {
+  const [outputMode, setOutputMode] = useState<OutputMode>("meeting");
   const [baseCityLabel, setBaseCityLabel] = useState("Tokyo");
   const baseCity = useMemo<CityOption | null>(() => {
     const found = findCityOption(baseCityLabel);
@@ -62,23 +65,38 @@ export default function App() {
   }, [baseCity, candidates, participants]);
 
   const outputText = useMemo(() => {
-    if (!baseCity) return "";
-    if (validationErrors.length > 0) return "";
+    if (!baseCity) return "開催都市（基準）を選択してください。";
+
+    const participantList = [
+      { label: baseCity.label, iana: baseCity.iana },
+      ...participants.map(p => ({ label: p.label, iana: p.iana }))
+    ];
 
     return candidates
-      .map(c =>
-        formatCandidateLine({
+      .map(c => {
+        if (outputMode === "meeting") {
+          return formatCandidateLine({
+            baseIana: baseCity.iana,
+            baseLabel: baseCity.label,
+            candidateDate: c.date,
+            start: c.start,
+            end: c.end,
+            participants: participants.map(p => ({ label: p.label, iana: p.iana })),
+            use24h
+          });
+        }
+
+        // 一覧モード（候補ごとに “見出し + 表” にする）
+        const header = `${c.date} ${c.start} (base: ${baseCity.label})`;
+        return `${header}\n${formatCandidateAsAlignedTable({
           baseIana: baseCity.iana,
-          baseLabel: baseCity.label,
           candidateDate: c.date,
           start: c.start,
-          end: c.end,
-          participants: participants.map(p => ({ label: p.label, iana: p.iana })),
-          use24h
-        })
-      )
-      .join("\n");
-  }, [baseCity, candidates, participants, use24h, validationErrors.length]);
+          participants: participantList
+        })}`;
+      })
+      .join("\n\n");
+  }, [baseCity, candidates, participants, use24h, outputMode]);
 
   function addCandidate() {
     setCandidates(prev => [...prev, { id: uid(), date: todayISO(), start: "09:00", end: "10:00" }]);
@@ -106,7 +124,6 @@ export default function App() {
     })
   );
 }
-
 
   function removeCandidate(id: string) {
     setCandidates(prev => prev.filter(c => c.id !== id));
@@ -180,7 +197,7 @@ export default function App() {
             />
             <datalist id="cityOptions">
               {CITY_OPTIONS.map(c => (
-                <option key={c.iana} value={c.label} />
+                <option key={`${c.iana}__${c.label}`} value={c.label} />
               ))}
             </datalist>
             <div className="hint">
@@ -327,6 +344,27 @@ export default function App() {
       <section className="card">
         <div className="cardTitle">
           <h2>Output</h2>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <label>
+              <input
+                type="radio"
+                name="outputMode"
+                checked={outputMode === "meeting"}
+                onChange={() => setOutputMode("meeting")}
+              />
+              会議用フォーマット
+            </label>
+
+            <label>
+              <input
+                type="radio"
+                name="outputMode"
+                checked={outputMode === "table"}
+                onChange={() => setOutputMode("table")}
+              />
+              一覧（都市/現地日時/UTC）
+            </label>
+          </div>          
           <div className="actions">
             <button type="button" onClick={copyToClipboard} disabled={!outputText}>
               Copy

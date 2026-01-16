@@ -87,6 +87,11 @@ textarea {
   resize: vertical;
 }
 
+.output {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  white-space: pre;
+}
+
 button {
   border: 1px solid #d7d9de;
   background: #f3f4f6;
